@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 {
   float **A, **B, **C;  // matrices
     int d1 = 1000, d2 = 1000, d3 = 1000;         // dimensions of matrices
-    int i, j, k;      // loop variables
+    // int i, j, k;      // loop variables
 
     /* prepare matrices */
     A = alloc_mat(d1, d2);
@@ -62,18 +62,40 @@ int main(int argc, char *argv[])
 
     C = alloc_mat(d1, d3);  // no initialisation of C, because it gets filled by matmult
 
+    MPI_Init(&argc, &argv);
+
+    int rank, size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    /* serial version of matmult */
+    MPI_Status rec_stat;
+    int recv_messages = 0;
+
     printf("Perform matrix multiplication...\n");
+
     if (rank == 0) {
-      for (i = 0; i < d1; i++) {
-          MPI_Send(A, 1000, MPI_FLOAT, i+1, i, MPI_COMM_WORLD);
+      for (int i = 0; i < d1; i++) {
+          MPI_Send(*A + i*d2, d2, MPI_FLOAT, i%(size-1) + 1, 0, MPI_COMM_WORLD);
+          printf("Row i=%i \n", i);
       }
     } else {
-      // MPI_Recv()
-      // for (j = 0; j < d3; j++)
-      //   for (k = 0; k < d2; k++)
+      int count_ = 0;
+      for (int i = 0; i < d1; i++) {
+        if (rank == i%(size-1) + 1) {
+          ++count_;
+        }
+      }
+
+      for (int i = 0; i < count_; i++) {
+        MPI_Recv(*C + recv_messages*d2, d2, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, &rec_stat);
+        if (rec_stat.MPI_ERROR == 0) {
+          ++recv_messages;
+        }
+        printf("Rank of process: %i Number of messages received: %i \n", rank, recv_messages);
+      }
+
+      // for (int j = 0; j < d3; j++)
+      //   for (int k = 0; k < d2; k++)
       //     C[i][j] += A[i][k] * B[k][j];
     }
 
@@ -83,6 +105,7 @@ int main(int argc, char *argv[])
     // print_mat(B, d2, d3, "B");
     // print_mat(C, d1, d3, "C");
 
+    MPI_Finalize();
     printf ("\nDone.\n");
 
     return 0;
