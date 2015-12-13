@@ -8,13 +8,19 @@ int nodeID, numNodes;
 MPI_Init(&argc, &argv);
 /* Initialisiert das MPI-Laufzeitsystem (Folie), uebergibt MPI die per Kommandozeile uebergebenen Argumente.
 Vorher duerfen keine MPI-Funktionen aufgerufen werden. */
-MPI_Comm_size(MPI_COMM_WORLD, &numNodes); // ???
-MPI_Comm_rank(MPI_COMM_WORLD, &nodeID); // ???
 
-/* ??? */
+MPI_Comm_size(MPI_COMM_WORLD, &numNodes);
+/* Gibt Anzahl der Prozesse in Kommunikator MPI_COMM_WORLD zurueck.
+Dieser ist der default Kommunikator, und repraesentiert die Menge aller Prozesse. */
+
+MPI_Comm_rank(MPI_COMM_WORLD, &nodeID);
+// Gibt die eigene ID (genannt: rank) innerhalb des Kommunikators MPI_COMM_WORLD zurueck.
+
+/* Gibt die eigene ID und die Gesamtanzahl der Prozesse auf der Kommandozeile aus. */
 printf("Hello world from process %d of %d\n", nodeID, numNodes);
 
-/* ??? */
+/* Wartet auf Abschluss aller MPI-Anweisungen und meldet dann Prozess bei MPI-Laufzeitumgebung ab.
+Nach MPI_Finalize koennen keine MPI Befehle mehr aufgerufen werden. */
 MPI_Finalize();
 
 return 0;
