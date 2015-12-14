@@ -60,7 +60,8 @@ int main(int argc, char *argv[])
     B = alloc_mat(d2, d3);
     init_mat(B, d2, d3);
 
-    C = alloc_mat(d1, d3);  // no initialisation of C, because it gets filled by matmult
+    C = alloc_mat(d1, d3);  // no initialization of C, because it gets filled by matmult
+
 
     MPI_Init(&argc, &argv);
 
@@ -68,7 +69,7 @@ int main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    MPI_Status rec_stat;
+    MPI_Status rec_stat, rec_stat2;
     int recv_messages = 0;
 
     printf("Perform matrix multiplication...\n");
@@ -76,8 +77,14 @@ int main(int argc, char *argv[])
     if (rank == 0) {
       for (int i = 0; i < d1; i++) {
           MPI_Send(*A + i*d2, d2, MPI_FLOAT, i%(size-1) + 1, 0, MPI_COMM_WORLD);
+          MPI_Recv(*C + i*d3, d3, MPI_FLOAT, i%(size-1) + 1, 0, MPI_COMM_WORLD, &rec_stat2);
           printf("Row i=%i \n", i);
       }
+      /* test output */
+      print_mat(A, d1, d2, "A");
+      print_mat(B, d2, d3, "B");
+      print_mat(C, d1, d3, "C");
+
     } else {
       int count_ = 0;
       for (int i = 0; i < d1; i++) {
@@ -86,26 +93,29 @@ int main(int argc, char *argv[])
         }
       }
 
-      for (int i = 0; i < count_; i++) {
-        MPI_Recv(*C + recv_messages*d2, d2, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, &rec_stat);
-        if (rec_stat.MPI_ERROR == 0) {
-          ++recv_messages;
-        }
-        printf("Rank of process: %i Number of messages received: %i \n", rank, recv_messages);
-      }
+      float *rec = (float *)calloc(d2, sizeof(float));
+      float *result = (float *)calloc(d3, sizeof(float));
 
-      // for (int j = 0; j < d3; j++)
-      //   for (int k = 0; k < d2; k++)
-      //     C[i][j] += A[i][k] * B[k][j];
+      for (int i = 0; i < count_; i++) {
+        MPI_Recv(rec, d2, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, &rec_stat);
+
+        if (rec_stat.MPI_ERROR == 0) ++recv_messages;
+        printf("Rank of process: %i Number of messages received: %i \n", rank, recv_messages);
+
+        for (int j = 0; j < d3; j++) {
+          result[j] = 0;
+          for (int k = 0; k < d2; k++) {
+            result[j] += rec[k] * B[k][j];
+          }
+        }
+
+        MPI_Send(result, d3, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
+      }
     }
 
-
-    /* test output */
-    // print_mat(A, d1, d2, "A");
-    // print_mat(B, d2, d3, "B");
-    // print_mat(C, d1, d3, "C");
-
     MPI_Finalize();
+
+
     printf ("\nDone.\n");
 
     return 0;
