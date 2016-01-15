@@ -11,7 +11,7 @@
 
 float **alloc_mat(int row, int col)
 {
-    float **A1, *A2;
+  float **A1, *A2;
 
   A1 = (float **)calloc(row, sizeof(float *));    // pointer on rows
   A2 = (float *)calloc(row*col, sizeof(float));    // all matrix elements
@@ -225,49 +225,41 @@ int main_var3(int argc, char *argv[])
       init_mat(A, d1, d2);
       init_mat(B, d2, d3);
     }
+
+    int part_size = d1 / size; //how much each process has to process
+    int remaining_parts = d1 % size; //parts which cannot be parallelized
+
     MPI_Bcast(*B, d2*d3, MPI_FLOAT, 0, MPI_COMM_WORLD); //Broadcast B to all
 
-    if (rank == 0) {
-      for (int i = 0; i < d1; i++) {
-          MPI_Send(*A + i*d2, d2, MPI_FLOAT, i%(size-1) + 1, 0, MPI_COMM_WORLD);
-          MPI_Recv(*C + i*d3, d3, MPI_FLOAT, i%(size-1) + 1, 0, MPI_COMM_WORLD, &rec_stat2);
-          // printf("Row i=%i \n", i);
-      }
-      /* test output */
-      // print_mat(A, d1, d2, "A");
-      // print_mat(B, d2, d3, "B");
-      // print_mat(C, d1, d3, "C");
+    // float *rec = (float *)calloc(d2*part_size, sizeof(float));
+    float **rec;
+    rec = alloc_mat(d3, part_size);
 
-    } else {
-      int count_ = 0;
-      for (int i = 0; i < d1; i++) {
-        if (rank == i%(size-1) + 1) {
-          ++count_;
+
+    MPI_Scatter(*A, part_size*d2, MPI_FLOAT, rec, part_size*d2, MPI_FLOAT, 0, MPI_COMM_WORLD); //Scatter A in parts to all workers
+
+    // float *result = (float *)calloc(d3, sizeof(float));
+    float **result;
+    result = alloc_mat(d3, part_size);
+
+    for (int i = 0; i < part_size; i++) {
+      result[i] = 0;
+      for (int j = 0; j < d3; j++) {
+        for (int k = 0; k < d2; k++) {
+          result[i][j] += rec[i][k] * B[k][j];
         }
-      }
-
-      float *rec = (float *)calloc(d2, sizeof(float));
-      float *result = (float *)calloc(d3, sizeof(float));
-
-      for (int i = 0; i < count_; i++) {
-        MPI_Recv(rec, d2, MPI_FLOAT, 0, 0, MPI_COMM_WORLD, &rec_stat);
-
-        if (rec_stat.MPI_ERROR == 0) ++recv_messages;
-        // printf("Rank of process: %i Number of messages received: %i \n", rank, recv_messages);
-
-        for (int j = 0; j < d3; j++) {
-          result[j] = 0;
-          for (int k = 0; k < d2; k++) {
-            result[j] += rec[k] * B[k][j];
-          }
-        }
-
-        MPI_Send(result, d3, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
       }
     }
 
-    MPI_Finalize();
+    //Gather C from workers to master
+    MPI_Gather(result, d1, MPI_FLOAT, *C, part_size*d2, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
+    /* test output */
+    // print_mat(A, d1, d2, "A");
+    // print_mat(B, d2, d3, "B");
+    // print_mat(C, d1, d3, "C");
+
+    MPI_Finalize();
 
     printf ("\nDone.\n");
 
