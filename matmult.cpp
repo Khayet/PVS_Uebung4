@@ -221,13 +221,13 @@ int main_var3(int argc, char *argv[])
     int recv_messages = 0;
 
     // printf("Perform matrix multiplication...\n");
-
-    MPI_Bcast(*B, d2*d3, MPI_FLOAT, 0, MPI_COMM_WORLD);
-
-    if (rank == 0) {
+    if (rank == 0) { //A and B only have to be initialized by the master
       init_mat(A, d1, d2);
       init_mat(B, d2, d3);
+    }
+    MPI_Bcast(*B, d2*d3, MPI_FLOAT, 0, MPI_COMM_WORLD); //Broadcast B to all
 
+    if (rank == 0) {
       for (int i = 0; i < d1; i++) {
           MPI_Send(*A + i*d2, d2, MPI_FLOAT, i%(size-1) + 1, 0, MPI_COMM_WORLD);
           MPI_Recv(*C + i*d3, d3, MPI_FLOAT, i%(size-1) + 1, 0, MPI_COMM_WORLD, &rec_stat2);
