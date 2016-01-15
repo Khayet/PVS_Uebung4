@@ -199,12 +199,10 @@ int main_var2(int argc, char *argv[])
 int main_var3(int argc, char *argv[])
 {
   float **A, **B, **C;  // matrices
-    int d1 = 1000, d2 = 99, d3 = 995;         // dimensions of matrices
-    // int i, j, k;      // loop variables
-
-    // d1 := rows of A and C
-    // d2 := cols of A and rows of B
-    // d3 := cols of B and C
+    int d1, d2, d3;         // dimensions of matrices
+    d1 = atoi(argv[1]); //rows of A and C
+    d2 = atoi(argv[2]); //cols of A and rows of B
+    d3 = atoi(argv[3]); //cols of B and C
 
     /* prepare matrices */
     A = alloc_mat(d1, d2);
@@ -231,19 +229,15 @@ int main_var3(int argc, char *argv[])
 
     MPI_Bcast(*B, d2*d3, MPI_FLOAT, 0, MPI_COMM_WORLD); //Broadcast B to all
 
-    // float *rec = (float *)calloc(d2*part_size, sizeof(float));
     float **rec;
-    rec = alloc_mat(d3, part_size);
+    rec = alloc_mat(d2, part_size);
 
+    MPI_Scatter(*A, part_size*d2, MPI_FLOAT, *rec, part_size*d2, MPI_FLOAT, 0, MPI_COMM_WORLD); //Scatter A in parts to all workers
 
-    MPI_Scatter(*A, part_size*d2, MPI_FLOAT, rec, part_size*d2, MPI_FLOAT, 0, MPI_COMM_WORLD); //Scatter A in parts to all workers
-
-    // float *result = (float *)calloc(d3, sizeof(float));
     float **result;
     result = alloc_mat(d3, part_size);
 
     for (int i = 0; i < part_size; i++) {
-      result[i] = 0;
       for (int j = 0; j < d3; j++) {
         for (int k = 0; k < d2; k++) {
           result[i][j] += rec[i][k] * B[k][j];
@@ -251,9 +245,11 @@ int main_var3(int argc, char *argv[])
       }
     }
 
+    std::cout << "works\n";
     //Gather C from workers to master
-    MPI_Gather(result, d1, MPI_FLOAT, *C, part_size*d2, MPI_FLOAT, 0, MPI_COMM_WORLD);
+    MPI_Gather(result, part_size*d3, MPI_FLOAT, *C, part_size*d3, MPI_FLOAT, 0, MPI_COMM_WORLD);
 
+    std::cout << "works 2 \n";
     /* test output */
     // print_mat(A, d1, d2, "A");
     // print_mat(B, d2, d3, "B");
